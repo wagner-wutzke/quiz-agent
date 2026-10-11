@@ -1,0 +1,50 @@
+spring:
+  application:
+    name: interview-coach
+
+  devtools:
+    restart:
+      enabled: true
+
+  ai:
+    openai:
+      chat:
+        model: gpt-6-luna
+        reasoning-effort: low
+        api-key: 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
+        base-url: https://api.openai.com/v1
+
+    model:
+      audio:
+        speech: none
+        transcription: none
+      embedding: none
+      image: none
+      moderation: none
+
+  datasource:
+    url: jdbc:h2:file:./data/interview-coach-db
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  sql.init.mode: always
+  jpa:
+    hibernate.ddl-auto: update
+    open-in-view: false
+    show-sql: false
+    defer-datasource-initialization: true
+  h2:
+    console:
+      enabled: ${H2_CONSOjobinterviewerLE_ENABLED:true}
+      settings:
+        web-allow-others: ${H2_CONSOLE_WEB_ALLOW_OTHERS:true}
+
+logging:
+  level:
+    org:
+      springframework:
+        ai:
+          chat:
+            client:
+              advisor: INFO
