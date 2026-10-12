@@ -10,34 +10,17 @@ const toast = document.querySelector('#toast');
 const historyList = document.querySelector('#history-list');
 const historyCount = document.querySelector('#history-count');
 const scoreSummary = document.querySelector('#score-summary');
-const SESSION_STORAGE_KEY = 'quiz-agent-session';
-const session = loadOrCreateSession();
-const history = session.history;
+const SESSION_ID_KEY = 'quiz-agent-session-id';
+const session = {id: loadOrCreateSessionId()};
+let history = [];
 
-function loadOrCreateSession() {
-  try {
-    const stored = localStorage.getItem(SESSION_STORAGE_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      if (parsed && typeof parsed.id === 'string' && Array.isArray(parsed.history)) {
-        return parsed;
-      }
-    }
-  } catch (error) {
-    console.warn('Could not restore the quiz session.', error);
+function loadOrCreateSessionId() {
+  let id = sessionStorage.getItem(SESSION_ID_KEY);
+  if (!id) {
+    id = crypto.randomUUID();
+    sessionStorage.setItem(SESSION_ID_KEY, id);
   }
-
-  const newSession = {id: crypto.randomUUID(), history: []};
-  persistSession(newSession);
-  return newSession;
-}
-
-function persistSession(value = session) {
-  try {
-    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(value));
-  } catch (error) {
-    console.warn('Could not persist the quiz session.', error);
-  }
+  return id;
 }
 
 function sessionHeaders() {
@@ -74,6 +57,19 @@ async function loadQuestion() {
   setBusy(false);
 }
 
+async function loadHistory() {
+  try {
+    const response = await fetch('/api/quiz/history', {headers: sessionHeaders()});
+    if (!response.ok) {
+      throw new Error('Could not load answer history.');
+    }
+    history = await response.json();
+    renderHistory();
+  } catch (error) {
+    showToast(error.message);
+  }
+}
+
 document.querySelector('#answer-form').addEventListener('submit',
     async (event) => {
       event.preventDefault();
@@ -98,7 +94,7 @@ document.querySelector('#answer-form').addEventListener('submit',
         }
         const result = await response.json();
         renderEvaluation(result);
-        addHistoryEntry(answerInput.value.trim(), result);
+        await loadHistory();
       } catch (error) {
         showToast(error.message);
       }
@@ -126,13 +122,15 @@ document.querySelector('#finish-btn').addEventListener('click', () => {
 });
 
 function clearSessionHistory() {
-  history.length = 0;
-  localStorage.removeItem(SESSION_STORAGE_KEY);
-  session.id = crypto.randomUUID();
-  persistSession();
-  historyList.innerHTML = '<div id="history-empty" class="history-empty">Your completed answers will appear here.</div>';
-  historyCount.textContent = '0 answered';
-  renderScore();
+  fetch('/api/quiz/history', {method: 'DELETE', headers: sessionHeaders()})
+      .then(async response => {
+        if (!response.ok) {
+          throw new Error('Could not clear answer history.');
+        }
+        history = [];
+        renderHistory();
+      })
+      .catch(() => showToast('Could not clear answer history.'));
 }
 
 function renderEvaluation(result) {
@@ -155,46 +153,30 @@ function renderEvaluation(result) {
   };
 }
 
-function addHistoryEntry(answer, result) {
-  const entry = {
-    question: state.question,
-    correctAnswer: state.expectedAnswer,
-    answer,
-    result
-  };
-  history.push(entry);
-  persistSession();
-  document.querySelector('#history-empty')?.remove();
+function renderHistory() {
+  historyList.innerHTML = '';
+  if (!history.length) {
+    historyList.innerHTML = '<div id="history-empty" class="history-empty">Your completed answers will appear here.</div>';
+  }
   historyCount.textContent = `${history.length} answered`;
   renderScore();
-  const item = document.createElement('details');
-  item.className = 'history-item';
-  item.open = true;
-  const tips = (result.tips || []).map(item => `<li>${escapeHtml(item)}</li>`).join('');
-  const enhancements = (result.enhancementPoints || []).map(item => `<li>${escapeHtml(item)}</li>`).join('');
-  item.innerHTML = `<summary><div class="history-summary"><span class="history-number">${history.length}</span><span class="history-question">${escapeHtml(state.question)}</span><span class="history-result ${result.isCorrect ? '' : 'incorrect'}">${result.isCorrect ? 'Correct' : 'Review'}</span></div></summary><div class="history-body"><div class="history-label">Your answer</div><p class="history-answer">${escapeHtml(answer)}</p><div class="history-label">Correct answer</div><p class="history-answer">${escapeHtml(entry.correctAnswer || 'Not provided.')}</p><div class="history-label">Agent evaluation</div><p class="history-justification">${escapeHtml(result.scoreJustification || 'No justification provided.')}</p>${tips ? `<div class="history-label">Tips</div><ul>${tips}</ul>` : ''}${enhancements ? `<div class="history-label mt-3">Enhancement points</div><ul>${enhancements}</ul>` : ''}</div>`;
-  historyList.prepend(item);
+  [...history].reverse().forEach((entry, index) => {
+    const result = entry.result || entry;
+    const item = document.createElement('details');
+    item.className = 'history-item';
+    item.open = index === 0;
+    const tips = (result.tips || []).map(value => `<li>${escapeHtml(value)}</li>`).join('');
+    const enhancements = (result.enhancementPoints || []).map(value => `<li>${escapeHtml(value)}</li>`).join('');
+    item.innerHTML = `<summary><div class="history-summary"><span class="history-number">${history.length - index}</span><span class="history-question">${escapeHtml(entry.question)}</span><span class="history-result ${result.isCorrect ? '' : 'incorrect'}">${result.isCorrect ? 'Correct' : 'Review'}</span></div></summary><div class="history-body"><div class="history-label">Your answer</div><p class="history-answer">${escapeHtml(entry.answer)}</p><div class="history-label">Correct answer</div><p class="history-answer">${escapeHtml(entry.expectedAnswer || 'Not provided.')}</p><div class="history-label">Agent evaluation</div><p class="history-justification">${escapeHtml(result.scoreJustification || 'No justification provided.')}</p>${tips ? `<div class="history-label">Tips</div><ul>${tips}</ul>` : ''}${enhancements ? `<div class="history-label mt-3">Enhancement points</div><ul>${enhancements}</ul>` : ''}</div>`;
+    historyList.append(item);
+  });
 }
 
 function renderScore() {
-  const correct = history.filter(entry => entry.result?.isCorrect).length;
+  const correct = history.filter(entry => (entry.result || entry).isCorrect).length;
   const incorrect = history.length - correct;
   const percentage = history.length ? Math.round((correct / history.length) * 100) : 0;
   scoreSummary.textContent = `${correct} correct · ${incorrect} incorrect · ${percentage}%`;
-}
-
-function restoreHistory() {
-  const savedHistory = [...history];
-  history.length = 0;
-  savedHistory.forEach(entry => {
-    const question = state.question;
-    const expectedAnswer = state.expectedAnswer;
-    state.question = entry.question;
-    state.expectedAnswer = entry.correctAnswer;
-    addHistoryEntry(entry.answer, entry.result);
-    state.question = question;
-    state.expectedAnswer = expectedAnswer;
-  });
 }
 
 function setBusy(busy) {
@@ -218,6 +200,5 @@ function escapeHtml(value) {
   }[char]));
 }
 
-restoreHistory();
-renderScore();
+loadHistory();
 loadQuestion();
