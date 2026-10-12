@@ -1,252 +1,406 @@
-const state = {question: null, expectedAnswer: null, questionNumber: 1};
-let totalQuestions = 0;
-const questionPanel = document.querySelector('#question-panel');
-const answerInput = document.querySelector('#answer-input');
-const submitButton = document.querySelector('#submit-btn');
-const evaluationPanel = document.querySelector('#evaluation-panel');
-const progressLabel = document.querySelector('#progress-label');
-const progressBar = document.querySelector('#progress-bar');
-const toast = document.querySelector('#toast');
-const historyList = document.querySelector('#history-list');
-const historyCount = document.querySelector('#history-count');
-const scoreSummary = document.querySelector('#score-summary');
-const SESSION_ID_KEY = 'quiz-agent-session-id';
-const session = {id: null, active: false};
-const sessionButton = document.querySelector('#session-btn');
-const interviewTopicLabel = document.querySelector('#interview-topic');
-let history = [];
+const SESSION_ID_KEY = "quiz-agent-session-id";
+const API = {
+  question: "/api/quiz/question",
+  evaluation: "/api/quiz/evaluate",
+  history: "/api/quiz/history",
+  topic: "/api/quiz/topic",
+};
+const LABELS = {
+  startSession: "Start session  →",
+  finishSession: "Finish session  →",
+  evaluate: "Get evaluation <span>↗</span>",
+  evaluating: "Analyzing <span>…</span>",
+  evaluated: "Evaluated <span>✓</span>",
+};
+
+const state = {
+  question: null,
+  expectedAnswer: null,
+  questionNumber: 1,
+  totalQuestions: 0,
+  sessionId: null,
+  sessionActive: false,
+  history: [],
+};
+
+const elements = {
+  answerForm: document.querySelector("#answer-form"),
+  answerInput: document.querySelector("#answer-input"),
+  cancelFinishButton: document.querySelector("#cancel-finish-btn"),
+  confirmFinishButton: document.querySelector("#confirm-finish-btn"),
+  evaluationPanel: document.querySelector("#evaluation-panel"),
+  finishModal: document.querySelector("#finish-modal"),
+  historyCount: document.querySelector("#history-count"),
+  historyList: document.querySelector("#history-list"),
+  interviewTopic: document.querySelector("#interview-topic"),
+  progressBar: document.querySelector("#progress-bar"),
+  progressLabel: document.querySelector("#progress-label"),
+  questionPanel: document.querySelector("#question-panel"),
+  questionTag: document.querySelector("#question-tag"),
+  scoreSummary: document.querySelector("#score-summary"),
+  sessionButton: document.querySelector("#session-btn"),
+  submitButton: document.querySelector("#submit-btn"),
+  toast: document.querySelector("#toast"),
+};
 
 function sessionHeaders() {
-  return {'X-Quiz-Session-Id': session.id};
+  return { "X-Quiz-Session-Id": state.sessionId };
 }
 
-sessionButton.addEventListener('click', async () => {
-  if (session.active) {
-    await finishSession();
-  } else {
-    await startSession();
+function setAnswerFormBusy(isBusy) {
+  elements.answerInput.disabled = isBusy;
+  elements.submitButton.disabled = isBusy;
+}
+
+function showToast(message) {
+  elements.toast.textContent = message;
+  elements.toast.classList.add("show");
+  setTimeout(() => elements.toast.classList.remove("show"), 3500);
+}
+
+function escapeHtml(value) {
+  const htmlEscapes = {
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "'": "&#39;",
+    '"': "&quot;",
+  };
+
+  return String(value).replace(
+    /[&<>'"]/g,
+    (character) => htmlEscapes[character],
+  );
+}
+
+async function requestJson(url, options = {}) {
+  const { errorMessage, ...requestOptions } = options;
+  const response = await fetch(url, requestOptions);
+  if (!response.ok) {
+    throw new Error(errorMessage || "The request could not be completed.");
   }
-});
+  return response.json();
+}
+
+function openFinishModal() {
+  elements.finishModal.classList.remove("d-none");
+  elements.confirmFinishButton.focus();
+}
+
+function closeFinishModal() {
+  elements.finishModal.classList.add("d-none");
+  elements.sessionButton.focus();
+}
+
+async function handleSessionButtonClick() {
+  if (state.sessionActive) {
+    openFinishModal();
+    return;
+  }
+
+  await startSession();
+}
+
+function setupEventHandlers() {
+  elements.sessionButton.addEventListener("click", handleSessionButtonClick);
+  elements.cancelFinishButton.addEventListener("click", closeFinishModal);
+  elements.confirmFinishButton.addEventListener("click", async () => {
+    closeFinishModal();
+    await finishSession();
+  });
+  elements.finishModal.addEventListener("click", (event) => {
+    if (event.target === elements.finishModal) {
+      closeFinishModal();
+    }
+  });
+  document.addEventListener("keydown", (event) => {
+    const modalIsOpen = !elements.finishModal.classList.contains("d-none");
+    if (event.key === "Escape" && modalIsOpen) {
+      closeFinishModal();
+    }
+  });
+  elements.answerForm.addEventListener("submit", handleAnswerSubmit);
+}
 
 async function startSession() {
-  session.id = crypto.randomUUID();
-  sessionStorage.setItem(SESSION_ID_KEY, session.id);
-  session.active = true;
+  state.sessionId = crypto.randomUUID();
+  state.sessionActive = true;
   state.questionNumber = 1;
-  history = [];
+  state.history = [];
+  sessionStorage.setItem(SESSION_ID_KEY, state.sessionId);
+
   renderHistory();
-  sessionButton.disabled = true;
-  sessionButton.textContent = 'Finish session  →';
+  elements.sessionButton.disabled = true;
+  elements.sessionButton.textContent = LABELS.finishSession;
   await loadQuestion();
-  sessionButton.disabled = false;
+  elements.sessionButton.disabled = false;
 }
 
 async function loadQuestion() {
-  if (!session.active) {
+  if (!state.sessionActive) {
     return;
   }
-  setBusy(true);
+
+  setAnswerFormBusy(true);
   try {
-    const response = await fetch('/api/quiz/question', {headers: sessionHeaders()});
+    const response = await fetch(API.question, { headers: sessionHeaders() });
     if (response.status === 204) {
-      throw new Error(
-          'No questions are available yet.');
+      throw new Error("No questions are available yet.");
     }
     if (!response.ok) {
-      throw new Error('Could not load the next question.');
+      throw new Error("Could not load the next question.");
     }
-    const data = await response.json();
-    state.question = data.question;
-    state.expectedAnswer = data.expectedAnswer;
-    totalQuestions = data.totalQuestions;
-    questionPanel.innerHTML = `<p class="question-text">${escapeHtml(
-        data.question)}</p>`;
-    document.querySelector(
-        '#question-tag').textContent = `QUESTION ${state.questionNumber}`;
-    progressLabel.textContent = `Question ${state.questionNumber} of ${totalQuestions}`;
-    progressBar.style.width = `${Math.min((state.questionNumber / totalQuestions) * 100, 100)}%`;
-    answerInput.value = '';
-    evaluationPanel.classList.add('d-none');
+
+    const question = await response.json();
+    displayQuestion(question);
   } catch (error) {
     showToast(error.message);
-    questionPanel.innerHTML = `<p class="question-text">Your next question is waiting for you.</p>`;
+    elements.questionPanel.innerHTML =
+      '<p class="question-text">Your next question is waiting for you.</p>';
+  } finally {
+    setAnswerFormBusy(false);
   }
-  setBusy(false);
+}
+
+function displayQuestion(question) {
+  state.question = question.question;
+  state.expectedAnswer = question.expectedAnswer;
+  state.totalQuestions = question.totalQuestions;
+
+  elements.questionPanel.innerHTML = `<p class="question-text">${escapeHtml(question.question)}</p>`;
+  elements.questionTag.textContent = `QUESTION ${state.questionNumber}`;
+  elements.progressLabel.textContent = `Question ${state.questionNumber} of ${state.totalQuestions}`;
+
+  const progress = Math.min(
+    (state.questionNumber / state.totalQuestions) * 100,
+    100,
+  );
+  elements.progressBar.style.width = `${progress}%`;
+  elements.answerInput.value = "";
+  elements.submitButton.innerHTML = LABELS.evaluate;
+  elements.evaluationPanel.classList.add("d-none");
 }
 
 async function loadHistory() {
-  const requestedSessionId = session.id;
+  if (!state.sessionActive) {
+    state.history = [];
+    renderHistory();
+    return;
+  }
+
+  const requestedSessionId = state.sessionId;
   try {
-    if (!session.active) {
-      history = [];
-      renderHistory();
+    const records = await requestJson(API.history, {
+      headers: sessionHeaders(),
+      errorMessage: "Could not load answer history.",
+    });
+
+    // Ignore a response if the user ended or replaced this session meanwhile.
+    if (!state.sessionActive || requestedSessionId !== state.sessionId) {
       return;
     }
-    const response = await fetch('/api/quiz/history', {headers: sessionHeaders()});
-    if (!response.ok) {
-      throw new Error('Could not load answer history.');
-    }
-    const records = await response.json();
-    if (!session.active || requestedSessionId !== session.id) {
-      return;
-    }
-    history = records;
+
+    state.history = records;
     renderHistory();
   } catch (error) {
     showToast(error.message);
   }
 }
 
-document.querySelector('#answer-form').addEventListener('submit',
-    async (event) => {
-      event.preventDefault();
-      if (!answerInput.value.trim() || !state.question) {
-        return;
-      }
-      submitButton.disabled = true;
-      submitButton.innerHTML = 'Analyzing <span>…</span>';
-      try {
-        const response = await fetch('/api/quiz/evaluate', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json', ...sessionHeaders()},
-          body: JSON.stringify({
-            question: state.question,
-            expectedAnswer: state.expectedAnswer || '',
-            answer: answerInput.value.trim()
-          })
-        });
-        if (!response.ok) {
-          throw new Error(
-              'The evaluation could not be completed.');
-        }
-        const result = await response.json();
-        renderEvaluation(result);
-        await loadHistory();
-      } catch (error) {
-        showToast(error.message);
-      }
-      submitButton.disabled = false;
-      submitButton.innerHTML = 'Get evaluation <span>↗</span>';
-    });
-
-async function finishSession() {
-  sessionButton.disabled = true;
-  try {
-    const response = await fetch('/api/quiz/history', {
-      method: 'DELETE',
-      headers: sessionHeaders()
-    });
-    if (!response.ok) {
-      throw new Error('Could not finish the session.');
-    }
-  } catch (error) {
-    showToast(error.message);
-    sessionButton.disabled = false;
+async function handleAnswerSubmit(event) {
+  event.preventDefault();
+  const answer = elements.answerInput.value.trim();
+  if (!answer || !state.question) {
     return;
   }
 
-  session.active = false;
-  sessionStorage.removeItem(SESSION_ID_KEY);
-  session.id = null;
-  history = [];
+  elements.submitButton.disabled = true;
+  elements.submitButton.innerHTML = LABELS.evaluating;
+
+  try {
+    const evaluation = await requestJson(API.evaluation, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...sessionHeaders() },
+      body: JSON.stringify({
+        question: state.question,
+        expectedAnswer: state.expectedAnswer || "",
+        answer,
+      }),
+      errorMessage: "The evaluation could not be completed.",
+    });
+
+    renderEvaluation(evaluation);
+    await loadHistory();
+    elements.submitButton.disabled = true;
+    elements.submitButton.innerHTML = LABELS.evaluated;
+  } catch (error) {
+    showToast(error.message);
+    elements.submitButton.disabled = false;
+    elements.submitButton.innerHTML = LABELS.evaluate;
+  }
+}
+
+async function finishSession() {
+  elements.sessionButton.disabled = true;
+
+  try {
+    const response = await fetch(API.history, {
+      method: "DELETE",
+      headers: sessionHeaders(),
+    });
+    if (!response.ok) {
+      throw new Error("Could not finish the session.");
+    }
+  } catch (error) {
+    showToast(error.message);
+    elements.sessionButton.disabled = false;
+    return;
+  }
+
+  resetSession();
+}
+
+function resetSession() {
+  state.sessionActive = false;
+  state.sessionId = null;
   state.questionNumber = 1;
   state.question = null;
   state.expectedAnswer = null;
-  questionPanel.innerHTML = '<p class="question-text">Start a session to see your first question.</p>';
-  answerInput.value = '';
-  setBusy(true);
-  document.querySelector('#question-tag').textContent = 'NOT STARTED';
-  progressLabel.textContent = 'No active session';
-  progressBar.style.width = '0%';
-  evaluationPanel.classList.add('d-none');
-  sessionButton.textContent = 'Start session  →';
-  sessionButton.disabled = false;
+  state.history = [];
+  sessionStorage.removeItem(SESSION_ID_KEY);
+
+  elements.questionPanel.innerHTML =
+    '<p class="question-text">Start a session to see your first question.</p>';
+  elements.answerInput.value = "";
+  setAnswerFormBusy(true);
+  elements.questionTag.textContent = "NOT STARTED";
+  elements.progressLabel.textContent = "No active session";
+  elements.progressBar.style.width = "0%";
+  elements.evaluationPanel.classList.add("d-none");
+  elements.sessionButton.textContent = LABELS.startSession;
+  elements.sessionButton.disabled = false;
   renderHistory();
 }
 
-function renderEvaluation(result) {
-  const tips = (result.tips || []).map(
-      item => `<li>${escapeHtml(item)}</li>`).join('');
-  const enhancements = (result.enhancementPoints || []).map(
-      item => `<li>${escapeHtml(item)}</li>`).join('');
-  evaluationPanel.innerHTML = `<div class="evaluation-result"><div class="result-icon">${result.isCorrect
-      ? '✓' : '!'}</div><div><h3>${result.isCorrect ? 'Correct answer'
-      : 'Answer needs review'}</h3><p>${escapeHtml(
-      result.scoreJustification || 'Your answer has been reviewed.')}</p>${tips
-      ? `<div class="section-label mt-3 mb-2">TIPS</div><ul>${tips}</ul>`
-      : ''}${enhancements
-      ? `<div class="section-label mt-3 mb-2">LEVEL UP</div><ul>${enhancements}</ul>`
-      : ''}</div></div><button id="next-btn" class="btn btn-outline-light mt-4">Next question <span>→</span></button>`;
-  evaluationPanel.classList.remove('d-none');
-  document.querySelector('#next-btn').onclick = () => {
+function renderEvaluation(evaluation) {
+  const tips = renderList(evaluation.tips);
+  const enhancements = renderList(evaluation.enhancementPoints);
+  const title = evaluation.isCorrect ? "Correct answer" : "Answer needs review";
+  const icon = evaluation.isCorrect ? "✓" : "!";
+  const justification = escapeHtml(
+    evaluation.scoreJustification || "Your answer has been reviewed.",
+  );
+
+  elements.evaluationPanel.innerHTML = `
+    <div class="evaluation-result">
+      <div class="result-icon">${icon}</div>
+      <div>
+        <h3>${title}</h3>
+        <p>${justification}</p>
+        ${tips ? `<div class="section-label mt-3 mb-2">TIPS</div><ul>${tips}</ul>` : ""}
+        ${enhancements ? `<div class="section-label mt-3 mb-2">LEVEL UP</div><ul>${enhancements}</ul>` : ""}
+      </div>
+    </div>
+    <button id="next-btn" class="btn btn-outline-light mt-4" type="button">
+      Next question <span>→</span>
+    </button>`;
+
+  elements.evaluationPanel.classList.remove("d-none");
+  document.querySelector("#next-btn").addEventListener("click", () => {
     state.questionNumber += 1;
     loadQuestion();
-  };
-}
-
-function renderHistory() {
-  historyList.innerHTML = '';
-  if (!history.length) {
-    historyList.innerHTML = '<div id="history-empty" class="history-empty">Your completed answers will appear here.</div>';
-  }
-  historyCount.textContent = `${history.length} answered`;
-  renderScore();
-  [...history].reverse().forEach((entry, index) => {
-    const result = entry.result || entry;
-    const item = document.createElement('details');
-    item.className = 'history-item';
-    item.open = index === 0;
-    const tips = (result.tips || []).map(value => `<li>${escapeHtml(value)}</li>`).join('');
-    const enhancements = (result.enhancementPoints || []).map(value => `<li>${escapeHtml(value)}</li>`).join('');
-    item.innerHTML = `<summary><div class="history-summary"><span class="history-number">${history.length - index}</span><span class="history-question">${escapeHtml(entry.question)}</span><span class="history-result ${result.isCorrect ? '' : 'incorrect'}">${result.isCorrect ? 'Correct' : 'Review'}</span></div></summary><div class="history-body"><div class="history-label">Your answer</div><p class="history-answer">${escapeHtml(entry.answer)}</p><div class="history-label">Correct answer</div><p class="history-answer">${escapeHtml(entry.expectedAnswer || 'Not provided.')}</p><div class="history-label">Agent evaluation</div><p class="history-justification">${escapeHtml(result.scoreJustification || 'No justification provided.')}</p>${tips ? `<div class="history-label">Tips</div><ul>${tips}</ul>` : ''}${enhancements ? `<div class="history-label mt-3">Enhancement points</div><ul>${enhancements}</ul>` : ''}</div>`;
-    historyList.append(item);
   });
 }
 
+function renderList(items = []) {
+  return (items || []).map((item) => `<li>${escapeHtml(item)}</li>`).join("");
+}
+
+function renderHistory() {
+  elements.historyList.innerHTML = "";
+  if (state.history.length === 0) {
+    elements.historyList.innerHTML =
+      '<div id="history-empty" class="history-empty">Your completed answers will appear here.</div>';
+  }
+
+  elements.historyCount.textContent = `${state.history.length} answered`;
+  renderScore();
+
+  [...state.history].reverse().forEach((entry, index) => {
+    elements.historyList.append(createHistoryItem(entry, index));
+  });
+}
+
+function createHistoryItem(entry, index) {
+  const evaluation = entry.result || entry;
+  const item = document.createElement("details");
+  item.className = "history-item";
+  item.open = false;
+  item.innerHTML = `
+    <summary>
+      <div class="history-summary">
+        <span class="history-number">${state.history.length - index}</span>
+        <span class="history-question">${escapeHtml(entry.question)}</span>
+        <span class="history-result ${evaluation.isCorrect ? "" : "incorrect"}">
+          ${evaluation.isCorrect ? "Correct" : "Review"}
+        </span>
+      </div>
+    </summary>
+    <div class="history-body">
+      <div class="history-label">Your answer</div>
+      <p class="history-answer">${escapeHtml(entry.answer)}</p>
+      <div class="history-label">Correct answer</div>
+      <p class="history-answer">${escapeHtml(entry.expectedAnswer || "Not provided.")}</p>
+      <div class="history-label">Agent evaluation</div>
+      <p class="history-justification">${escapeHtml(evaluation.scoreJustification || "No justification provided.")}</p>
+      ${renderHistorySection("Tips", evaluation.tips)}
+      ${renderHistorySection("Enhancement points", evaluation.enhancementPoints)}
+    </div>`;
+
+  return item;
+}
+
+function renderHistorySection(title, items = []) {
+  const list = renderList(items);
+  if (!list) {
+    return "";
+  }
+
+  const spacing = title === "Enhancement points" ? " mt-3" : "";
+  return `<div class="history-label${spacing}">${title}</div><ul>${list}</ul>`;
+}
+
 function renderScore() {
-  const correct = history.filter(entry => (entry.result || entry).isCorrect).length;
-  const incorrect = history.length - correct;
-  const percentage = history.length ? Math.round((correct / history.length) * 100) : 0;
-  scoreSummary.textContent = `${correct} correct · ${incorrect} incorrect · ${percentage}%`;
-}
+  const correctAnswers = state.history.filter(
+    (entry) => (entry.result || entry).isCorrect,
+  ).length;
+  const incorrectAnswers = state.history.length - correctAnswers;
+  const percentage = state.history.length
+    ? Math.round((correctAnswers / state.history.length) * 100)
+    : 0;
 
-function setBusy(busy) {
-  answerInput.disabled = busy;
-  submitButton.disabled = busy;
+  elements.scoreSummary.textContent = `${correctAnswers} correct · ${incorrectAnswers} incorrect · ${percentage}%`;
 }
-
-function showToast(message) {
-  toast.textContent = message;
-  toast.classList.add('show');
-  setTimeout(() => toast.classList.remove('show'), 3500);
-}
-
-function escapeHtml(value) {
-  return String(value).replace(/[&<>'"]/g, char => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    "'": '&#39;',
-    '"': '&quot;'
-  }[char]));
-}
-
-document.querySelector('#question-tag').textContent = 'NOT STARTED';
-progressLabel.textContent = 'No active session';
-setBusy(true);
-renderHistory();
-loadInterviewTopic();
 
 async function loadInterviewTopic() {
   try {
-    const response = await fetch('/api/quiz/topic');
-    if (!response.ok) {
-      throw new Error('Could not load the interview topic.');
-    }
-    const data = await response.json();
-    interviewTopicLabel.textContent = `Interview practice / ${data.interviewTopic || 'Java'}`;
+    const topic = await requestJson(API.topic, {
+      errorMessage: "Could not load the interview topic.",
+    });
+    elements.interviewTopic.textContent = `Interview practice / ${topic.interviewTopic || "Java"}`;
   } catch (error) {
-    interviewTopicLabel.textContent = 'Interview practice / Java';
+    elements.interviewTopic.textContent = "Interview practice / Java";
     console.warn(error.message);
   }
 }
+
+function initializePage() {
+  elements.questionTag.textContent = "NOT STARTED";
+  elements.progressLabel.textContent = "No active session";
+  setAnswerFormBusy(true);
+  renderHistory();
+  setupEventHandlers();
+  loadInterviewTopic();
+}
+
+initializePage();

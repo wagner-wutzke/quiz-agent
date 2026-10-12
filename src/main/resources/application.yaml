@@ -12,7 +12,7 @@ spring:
       chat:
         model: gpt-6-luna
         reasoning-effort: low
-        api-key: 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
+        api-key: ${OPENAI_API_KEY}
         base-url: https://api.openai.com/v1
 
     model:
@@ -24,10 +24,10 @@ spring:
       moderation: none
 
   datasource:
-    url: jdbc:h2:file:./data/interview-coach-db
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
+    url: ${DATASOURCE_URL:jdbc:h2:file:./data/quiz-agent-db}
+    driver-class-name: ${DATASOURCE_DRIVER_CLASS:org.h2.Driver}
+    username: ${DATASOUCE_USERNAME:sa}
+    password: ${DATASOUCE_PASSWORD:}
 
   sql.init.mode: always
   jpa:
@@ -37,7 +37,7 @@ spring:
     defer-datasource-initialization: true
   h2:
     console:
-      enabled: ${H2_CONSOjobinterviewerLE_ENABLED:true}
+      enabled: ${H2_CONSOLE_ENABLED:true}
       settings:
         web-allow-others: ${H2_CONSOLE_WEB_ALLOW_OTHERS:true}
 
@@ -48,4 +48,4 @@ logging:
         ai:
           chat:
             client:
-              advisor: INFO
+              advisor: ${AI_CHAT_LOGLEVEL:INFO}

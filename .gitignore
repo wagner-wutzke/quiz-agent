@@ -33,3 +33,4 @@ build/
 .vscode/
 /data/interview-coach-db.mv.db
 /data/interview-coach-db.trace.db
+/data/quiz-agent-db.mv.db
