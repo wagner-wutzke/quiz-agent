@@ -27,8 +27,8 @@ spring:
   datasource:
     url: ${DATASOURCE_URL:jdbc:h2:file:./data/quiz-agent-db}
     driver-class-name: ${DATASOURCE_DRIVER_CLASS:org.h2.Driver}
-    username: ${DATASOUCE_USERNAME:sa}
-    password: ${DATASOUCE_PASSWORD:}
+    username: ${DATASOURCE_USERNAME:sa}
+    password: ${DATASOURCE_PASSWORD:}
 
   sql.init.mode: always
   jpa:
