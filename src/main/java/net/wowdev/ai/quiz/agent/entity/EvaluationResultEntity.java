@@ -41,13 +41,17 @@ public class EvaluationResultEntity {
   private String scoreJustification;
 
   @ElementCollection
-  @CollectionTable(name = "evaluation_result_tips", joinColumns = @JoinColumn(name = "evaluation_id"))
+  @CollectionTable(
+      name = "evaluation_result_tips",
+      joinColumns = @JoinColumn(name = "evaluation_id"))
   @OrderColumn(name = "item_order")
   @Column(name = "tip", length = 2000)
   private List<String> tips = new ArrayList<>();
 
   @ElementCollection
-  @CollectionTable(name = "evaluation_result_enhancements", joinColumns = @JoinColumn(name = "evaluation_id"))
+  @CollectionTable(
+      name = "evaluation_result_enhancements",
+      joinColumns = @JoinColumn(name = "evaluation_id"))
   @OrderColumn(name = "item_order")
   @Column(name = "enhancement_point", length = 2000)
   private List<String> enhancementPoints = new ArrayList<>();
@@ -67,19 +71,47 @@ public class EvaluationResultEntity {
     this.correct = result.isCorrect();
     this.scoreJustification = result.scoreJustification();
     this.tips = result.tips() == null ? new ArrayList<>() : new ArrayList<>(result.tips());
-    this.enhancementPoints = result.enhancementPoints() == null
-        ? new ArrayList<>() : new ArrayList<>(result.enhancementPoints());
+    this.enhancementPoints =
+        result.enhancementPoints() == null
+            ? new ArrayList<>()
+            : new ArrayList<>(result.enhancementPoints());
   }
 
-  public Long getId() { return id; }
-  public String getSessionId() { return sessionId; }
-  public String getQuestion() { return question; }
-  public String getExpectedAnswer() { return expectedAnswer; }
-  public String getAnswer() { return answer; }
-  public boolean isCorrect() { return correct; }
-  public String getScoreJustification() { return scoreJustification; }
-  public List<String> getTips() { return List.copyOf(tips); }
-  public List<String> getEnhancementPoints() { return List.copyOf(enhancementPoints); }
+  public Long getId() {
+    return id;
+  }
+
+  public String getSessionId() {
+    return sessionId;
+  }
+
+  public String getQuestion() {
+    return question;
+  }
+
+  public String getExpectedAnswer() {
+    return expectedAnswer;
+  }
+
+  public String getAnswer() {
+    return answer;
+  }
+
+  public boolean isCorrect() {
+    return correct;
+  }
+
+  public String getScoreJustification() {
+    return scoreJustification;
+  }
+
+  public List<String> getTips() {
+    return List.copyOf(tips);
+  }
+
+  public List<String> getEnhancementPoints() {
+    return List.copyOf(enhancementPoints);
+  }
 
   public EvaluationResult toEvaluationResult() {
     return new EvaluationResult(correct, scoreJustification, getTips(), getEnhancementPoints());

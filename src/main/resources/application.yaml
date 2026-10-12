@@ -1,7 +1,8 @@
 spring:
   application:
     name: interview-coach
-    interview-topic: Salesforce Solution Architect
+    interview-topic: ${APP_INTERVIEW_TOPIC:Salesforce Technical Architect}
+    questions-file-location: classpath:questions/questions-answers.xlsx
 
   devtools:
     restart:
@@ -10,10 +11,10 @@ spring:
   ai:
     openai:
       chat:
-        model: gpt-6-luna
-        reasoning-effort: low
+        model: ${OPENAI_MODEL:gpt-6-luna}
+        reasoning-effort: ${OPENAI_REASONING_EFFORT:low}
         api-key: ${OPENAI_API_KEY}
-        base-url: https://api.openai.com/v1
+        base-url: ${OPENAI_BASEURL:https://api.openai.com/v1}
 
     model:
       audio:
@@ -48,4 +49,4 @@ logging:
         ai:
           chat:
             client:
-              advisor: ${AI_CHAT_LOGLEVEL:INFO}
+              advisor: ${OPENAI_CHAT_LOGLEVEL:INFO}

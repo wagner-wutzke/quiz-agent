@@ -1,7 +1,6 @@
 package net.wowdev.ai.quiz.agent.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -10,9 +9,9 @@ import java.util.List;
 import net.wowdev.ai.quiz.agent.entity.EvaluationResultEntity;
 import net.wowdev.ai.quiz.agent.entity.FlashCardEntity;
 import net.wowdev.ai.quiz.agent.model.EvaluationResult;
-import net.wowdev.ai.quiz.agent.repository.EvaluationResultRepository;
-import net.wowdev.ai.quiz.agent.repository.FlashCardRepository;
+import net.wowdev.ai.quiz.agent.service.FlashCardService;
 import net.wowdev.ai.quiz.agent.service.QuizAgentService;
+import net.wowdev.ai.quiz.agent.service.QuizHistoryService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -24,20 +23,21 @@ import org.springframework.http.ResponseEntity;
 @ExtendWith(MockitoExtension.class)
 class QuizControllerTest {
 
-  @Mock private FlashCardRepository repository;
+  @Mock private FlashCardService flashCardService;
   @Mock private QuizAgentService agentService;
-  @Mock private EvaluationResultRepository evaluationRepository;
+  @Mock private QuizHistoryService historyService;
 
   private QuizController controller;
 
   @BeforeEach
   void setUp() {
-    controller = new QuizController(repository, agentService, evaluationRepository, "Test Topic");
+    controller =
+        new QuizController(flashCardService, agentService, historyService, "Test Topic");
   }
 
   @Test
   void nextQuestionReturnsNoContentWhenRepositoryIsEmpty() {
-    when(repository.findRandomFlashcard()).thenReturn(null);
+    when(flashCardService.findRandomFlashcard()).thenReturn(null);
 
     ResponseEntity<QuizController.QuestionResponse> response = controller.nextQuestion();
 
@@ -47,14 +47,19 @@ class QuizControllerTest {
   @Test
   void nextQuestionReturnsQuestionAndTotal() {
     FlashCardEntity card = new FlashCardEntity(7L, "Question", "Answer");
-    when(repository.findRandomFlashcard()).thenReturn(card);
-    when(repository.count()).thenReturn(12L);
+    when(flashCardService.findRandomFlashcard()).thenReturn(card);
+    when(flashCardService.count()).thenReturn(12L);
 
     ResponseEntity<QuizController.QuestionResponse> response = controller.nextQuestion();
 
     assertThat(response.getBody())
         .isEqualTo(new QuizController.QuestionResponse(7L, "Question", "Answer", 12L));
-    verify(repository).count();
+    verify(flashCardService).count();
+  }
+
+  @Test
+  void topicReturnsConfiguredInterviewTopic() {
+    assertThat(controller.topic()).isEqualTo(new QuizController.TopicResponse("Test Topic"));
   }
 
   @Test
@@ -67,10 +72,11 @@ class QuizControllerTest {
 
     EvaluationResultEntity saved =
         new EvaluationResultEntity("session-1", "Question", "Expected", "Answer", result);
-    when(evaluationRepository.save(any(EvaluationResultEntity.class))).thenReturn(saved);
+    when(historyService.save("session-1", "Question", "Expected", "Answer", result))
+        .thenReturn(saved);
 
     assertThat(controller.evaluate(request, "session-1")).isSameAs(saved);
-    verify(evaluationRepository).save(any(EvaluationResultEntity.class));
+    verify(historyService).save("session-1", "Question", "Expected", "Answer", result);
   }
 
   @Test
@@ -79,7 +85,7 @@ class QuizControllerTest {
         new EvaluationResult(true, "Good", List.of("Tip"), List.of("Improve"));
     EvaluationResultEntity entry =
         new EvaluationResultEntity("session-1", "Question", "Expected", "Answer", result);
-    when(evaluationRepository.findHistoryBySessionId("session-1")).thenReturn(List.of(entry));
+    when(historyService.findBySessionId("session-1")).thenReturn(List.of(entry));
 
     List<QuizController.HistoryEntry> history = controller.history("session-1");
 
@@ -88,6 +94,14 @@ class QuizControllerTest {
     assertThat(history.get(0).expectedAnswer()).isEqualTo("Expected");
     assertThat(history.get(0).answer()).isEqualTo("Answer");
     assertThat(history.get(0).result()).isEqualTo(result);
-    verify(evaluationRepository).findHistoryBySessionId(eq("session-1"));
+    verify(historyService).findBySessionId(eq("session-1"));
+  }
+
+  @Test
+  void clearHistoryDeletesSessionHistoryAndReturnsNoContent() {
+    ResponseEntity<Void> response = controller.clearHistory("session-1");
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+    verify(historyService).deleteBySessionId("session-1");
   }
 }

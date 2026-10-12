@@ -1,9 +1,9 @@
 package net.wowdev.ai.quiz.agent.service;
 
+import java.util.Map;
 import net.wowdev.ai.quiz.agent.model.EvaluationResult;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Service;
-import java.util.Map;
 
 @Service
 public class QuizAgentService {

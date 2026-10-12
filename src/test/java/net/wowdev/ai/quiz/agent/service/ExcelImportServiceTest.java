@@ -2,6 +2,7 @@ package net.wowdev.ai.quiz.agent.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -32,17 +33,18 @@ class ExcelImportServiceTest {
 
   @Test
   void skipsImportWhenDatabaseAlreadyContainsAFlashcard() {
-    when(repository.findRandomFlashcard()).thenReturn(new FlashCardEntity());
+    when(repository.count()).thenReturn(1L);
 
     service.importExcelData();
 
+    verify(repository, times(1)).count();
     verify(repository, never()).save(org.mockito.ArgumentMatchers.any());
   }
 
   @Test
   void importsNonEmptyRowsAndSkipsInvalidRows() throws Exception {
-    ReflectionTestUtils.setField(service, "excelFileResouce", resourceWithRows());
-    when(repository.findRandomFlashcard()).thenReturn(null);
+    ReflectionTestUtils.setField(service, "excelFileResource", resourceWithRows());
+    when(repository.count()).thenReturn(0L);
 
     service.importExcelData();
 
@@ -56,14 +58,14 @@ class ExcelImportServiceTest {
   void handlesResourceErrorsWithoutThrowing() {
     ReflectionTestUtils.setField(
         service,
-        "excelFileResouce",
+        "excelFileResource",
         new ByteArrayResource(new byte[0]) {
           @Override
           public java.io.InputStream getInputStream() throws IOException {
             throw new IOException("broken workbook");
           }
         });
-    when(repository.findRandomFlashcard()).thenReturn(null);
+    when(repository.count()).thenReturn(0L);
 
     service.importExcelData();
 

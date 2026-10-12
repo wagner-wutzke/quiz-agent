@@ -14,19 +14,32 @@ public class ExcelImportService {
 
   private final FlashCardRepository repository;
 
-  @Value("classpath:questions/questions-answers.xlsx")
-  private Resource excelFileResouce;
+  @Value("${spring.application.questions-file-location}")
+  private Resource excelFileResource;
 
   public ExcelImportService(FlashCardRepository repository) {
     this.repository = repository;
   }
 
+  private static boolean isRowEmpty(Row row) {
+    if (row == null) {
+      return true;
+    }
+
+    Cell cell = row.getCell(1);
+    if (cell != null && cell.getCellType() != CellType.BLANK) {
+      // If it's a string, make sure it's not just spaces
+      return cell.getCellType() == CellType.STRING && cell.getStringCellValue().trim().isEmpty();
+    }
+    return true;
+  }
+
   @PostConstruct
   public void importExcelData() {
     try {
-      FlashCardEntity flashCard = repository.findRandomFlashcard();
-      if (flashCard != null) return; // data has already been imported
-      InputStream is = excelFileResouce.getInputStream();
+      long recordsAmount = repository.count();
+      if (recordsAmount > 0) return; // data has already been imported
+      InputStream is = excelFileResource.getInputStream();
       Workbook workbook = WorkbookFactory.create(is);
       Sheet sheet = workbook.getSheetAt(0);
 
@@ -50,18 +63,5 @@ public class ExcelImportService {
       System.out.println("Error importing Excel Data into H2 Database!");
       e.printStackTrace();
     }
-  }
-
-  private static boolean isRowEmpty(Row row) {
-    if (row == null) {
-      return true;
-    }
-
-    Cell cell = row.getCell(1);
-    if (cell != null && cell.getCellType() != CellType.BLANK) {
-      // If it's a string, make sure it's not just spaces
-      return cell.getCellType() == CellType.STRING && cell.getStringCellValue().trim().isEmpty();
-    }
-    return true;
   }
 }

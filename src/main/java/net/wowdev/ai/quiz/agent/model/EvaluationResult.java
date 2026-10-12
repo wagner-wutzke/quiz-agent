@@ -6,5 +6,4 @@ public record EvaluationResult(
     boolean isCorrect,
     String scoreJustification,
     List<String> tips,
-    List<String> enhancementPoints
-) {}
+    List<String> enhancementPoints) {}

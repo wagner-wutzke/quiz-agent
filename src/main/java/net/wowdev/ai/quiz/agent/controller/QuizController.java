@@ -1,40 +1,40 @@
 package net.wowdev.ai.quiz.agent.controller;
 
+import java.util.List;
+import java.util.stream.Collectors;
 import net.wowdev.ai.quiz.agent.entity.EvaluationResultEntity;
 import net.wowdev.ai.quiz.agent.entity.FlashCardEntity;
 import net.wowdev.ai.quiz.agent.model.EvaluationResult;
-import net.wowdev.ai.quiz.agent.repository.EvaluationResultRepository;
-import net.wowdev.ai.quiz.agent.repository.FlashCardRepository;
+import net.wowdev.ai.quiz.agent.service.FlashCardService;
 import net.wowdev.ai.quiz.agent.service.QuizAgentService;
+import net.wowdev.ai.quiz.agent.service.QuizHistoryService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
-import java.util.List;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import java.util.stream.Collectors;
-import org.springframework.beans.factory.annotation.Value;
 
 @RestController
 @RequestMapping("/api/quiz")
 public class QuizController {
 
-  private final FlashCardRepository repository;
+  private final FlashCardService flashCardService;
   private final QuizAgentService agentService;
-  private final EvaluationResultRepository evaluationRepository;
+  private final QuizHistoryService historyService;
   private final String interviewTopic;
 
   public QuizController(
-      FlashCardRepository repository,
+      FlashCardService flashCardService,
       QuizAgentService agentService,
-      EvaluationResultRepository evaluationRepository,
+      QuizHistoryService historyService,
       @Value("${spring.application.interview-topic:Java}") String interviewTopic) {
-    this.repository = repository;
+    this.flashCardService = flashCardService;
     this.agentService = agentService;
-    this.evaluationRepository = evaluationRepository;
+    this.historyService = historyService;
     this.interviewTopic = interviewTopic;
   }
 
@@ -45,7 +45,7 @@ public class QuizController {
 
   @GetMapping("/question")
   public ResponseEntity<QuestionResponse> nextQuestion() {
-    FlashCardEntity flashCard = repository.findRandomFlashcard();
+    FlashCardEntity flashCard = flashCardService.findRandomFlashcard();
     if (flashCard == null) {
       return ResponseEntity.noContent().build();
     }
@@ -54,7 +54,7 @@ public class QuizController {
             flashCard.getId(),
             flashCard.getQuestion(),
             flashCard.getCorrectAnswer(),
-            repository.count()));
+            flashCardService.count()));
   }
 
   @PostMapping("/evaluate")
@@ -62,14 +62,14 @@ public class QuizController {
       @RequestHeader("X-Quiz-Session-Id") String sessionId) {
     EvaluationResult result = agentService.evaluateAnswer(
         request.question(), request.expectedAnswer(), request.answer());
-    return evaluationRepository.save(new EvaluationResultEntity(sessionId,
-        request.question(), request.expectedAnswer(), request.answer(), result));
+    return historyService.save(
+        sessionId, request.question(), request.expectedAnswer(), request.answer(), result);
   }
 
   @GetMapping("/history")
   public List<HistoryEntry> history(
       @RequestHeader("X-Quiz-Session-Id") String sessionId) {
-    return evaluationRepository.findHistoryBySessionId(sessionId).stream()
+    return historyService.findBySessionId(sessionId).stream()
         .map(entry -> new HistoryEntry(
             entry.getId(),
             entry.getQuestion(),
@@ -82,7 +82,7 @@ public class QuizController {
   @DeleteMapping("/history")
   public ResponseEntity<Void> clearHistory(
       @RequestHeader("X-Quiz-Session-Id") String sessionId) {
-    evaluationRepository.deleteBySessionId(sessionId);
+    historyService.deleteBySessionId(sessionId);
     return ResponseEntity.noContent().build();
   }
 

@@ -18,8 +18,7 @@ public class ChatConfiguration {
   ChatClient chatClient(ChatClient.Builder builder) {
     return builder
         .defaultSystem(systemPrompt)
-        .defaultAdvisors(
-            new SimpleLoggerAdvisor(Ordered.LOWEST_PRECEDENCE))
+        .defaultAdvisors(new SimpleLoggerAdvisor(Ordered.LOWEST_PRECEDENCE))
         .build();
   }
 }
