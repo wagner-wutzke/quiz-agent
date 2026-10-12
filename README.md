@@ -4,6 +4,11 @@ QuizAgent is a web application for practicing interview questions. It presents q
 Excel question bank, uses an AI model to evaluate written answers, and provides a session history
 with correctness feedback and a score summary.
 
+<div style="text-align: center">
+  <img src="src/main/resources/static/img/quiz-agent-01.png" width="800"></img>
+</div>
+<br/><br/>
+
 ## Application functionality
 
 - Selects a random question from the configured question bank.
@@ -11,6 +16,10 @@ with correctness feedback and a score summary.
 - Displays whether the answer is correct, a justification, tips, and enhancement suggestions.
 - Tracks answers, correct and incorrect counts, and the correct-answer percentage for each session.
 - Lets the user end a session after confirming that its answer history should be deleted.
+
+<div style="text-align: center">
+  <img src="src/main/resources/static/img/quiz-agent-02.png" width="600"></img>
+</div>
 
 ## How it works
 
