@@ -11,23 +11,40 @@ const historyList = document.querySelector('#history-list');
 const historyCount = document.querySelector('#history-count');
 const scoreSummary = document.querySelector('#score-summary');
 const SESSION_ID_KEY = 'quiz-agent-session-id';
-const session = {id: loadOrCreateSessionId()};
+const session = {id: null, active: false};
+const sessionButton = document.querySelector('#session-btn');
+const interviewTopicLabel = document.querySelector('#interview-topic');
 let history = [];
-
-function loadOrCreateSessionId() {
-  let id = sessionStorage.getItem(SESSION_ID_KEY);
-  if (!id) {
-    id = crypto.randomUUID();
-    sessionStorage.setItem(SESSION_ID_KEY, id);
-  }
-  return id;
-}
 
 function sessionHeaders() {
   return {'X-Quiz-Session-Id': session.id};
 }
 
+sessionButton.addEventListener('click', async () => {
+  if (session.active) {
+    await finishSession();
+  } else {
+    await startSession();
+  }
+});
+
+async function startSession() {
+  session.id = crypto.randomUUID();
+  sessionStorage.setItem(SESSION_ID_KEY, session.id);
+  session.active = true;
+  state.questionNumber = 1;
+  history = [];
+  renderHistory();
+  sessionButton.disabled = true;
+  sessionButton.textContent = 'Finish session  →';
+  await loadQuestion();
+  sessionButton.disabled = false;
+}
+
 async function loadQuestion() {
+  if (!session.active) {
+    return;
+  }
   setBusy(true);
   try {
     const response = await fetch('/api/quiz/question', {headers: sessionHeaders()});
@@ -58,12 +75,22 @@ async function loadQuestion() {
 }
 
 async function loadHistory() {
+  const requestedSessionId = session.id;
   try {
+    if (!session.active) {
+      history = [];
+      renderHistory();
+      return;
+    }
     const response = await fetch('/api/quiz/history', {headers: sessionHeaders()});
     if (!response.ok) {
       throw new Error('Could not load answer history.');
     }
-    history = await response.json();
+    const records = await response.json();
+    if (!session.active || requestedSessionId !== session.id) {
+      return;
+    }
+    history = records;
     renderHistory();
   } catch (error) {
     showToast(error.message);
@@ -102,35 +129,39 @@ document.querySelector('#answer-form').addEventListener('submit',
       submitButton.innerHTML = 'Get evaluation <span>↗</span>';
     });
 
-document.querySelector('#finish-btn').addEventListener('click', () => {
-  clearSessionHistory();
+async function finishSession() {
+  sessionButton.disabled = true;
+  try {
+    const response = await fetch('/api/quiz/history', {
+      method: 'DELETE',
+      headers: sessionHeaders()
+    });
+    if (!response.ok) {
+      throw new Error('Could not finish the session.');
+    }
+  } catch (error) {
+    showToast(error.message);
+    sessionButton.disabled = false;
+    return;
+  }
+
+  session.active = false;
+  sessionStorage.removeItem(SESSION_ID_KEY);
+  session.id = null;
+  history = [];
   state.questionNumber = 1;
   state.question = null;
-  questionPanel.innerHTML = '<p class="question-text">Session complete. Ready for another round?</p>';
+  state.expectedAnswer = null;
+  questionPanel.innerHTML = '<p class="question-text">Start a session to see your first question.</p>';
   answerInput.value = '';
   setBusy(true);
-  document.querySelector('#question-tag').textContent = 'FINISHED';
-  progressLabel.textContent = 'Session complete';
-  progressBar.style.width = '100%';
+  document.querySelector('#question-tag').textContent = 'NOT STARTED';
+  progressLabel.textContent = 'No active session';
+  progressBar.style.width = '0%';
   evaluationPanel.classList.add('d-none');
-  document.querySelector('#finish-btn').textContent = 'Start new session  →';
-  document.querySelector('#finish-btn').onclick = () => {
-    state.questionNumber = 1;
-    document.querySelector('#finish-btn').textContent = 'Finish session  →';
-    loadQuestion();
-  };
-});
-
-function clearSessionHistory() {
-  fetch('/api/quiz/history', {method: 'DELETE', headers: sessionHeaders()})
-      .then(async response => {
-        if (!response.ok) {
-          throw new Error('Could not clear answer history.');
-        }
-        history = [];
-        renderHistory();
-      })
-      .catch(() => showToast('Could not clear answer history.'));
+  sessionButton.textContent = 'Start session  →';
+  sessionButton.disabled = false;
+  renderHistory();
 }
 
 function renderEvaluation(result) {
@@ -200,5 +231,22 @@ function escapeHtml(value) {
   }[char]));
 }
 
-loadHistory();
-loadQuestion();
+document.querySelector('#question-tag').textContent = 'NOT STARTED';
+progressLabel.textContent = 'No active session';
+setBusy(true);
+renderHistory();
+loadInterviewTopic();
+
+async function loadInterviewTopic() {
+  try {
+    const response = await fetch('/api/quiz/topic');
+    if (!response.ok) {
+      throw new Error('Could not load the interview topic.');
+    }
+    const data = await response.json();
+    interviewTopicLabel.textContent = `Interview practice / ${data.interviewTopic || 'Java'}`;
+  } catch (error) {
+    interviewTopicLabel.textContent = 'Interview practice / Java';
+    console.warn(error.message);
+  }
+}

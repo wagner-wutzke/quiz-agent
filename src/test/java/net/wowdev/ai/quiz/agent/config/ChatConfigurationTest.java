@@ -16,7 +16,8 @@ class ChatConfigurationTest {
   void createsChatClientWithSystemPromptAndAdvisor() {
     ChatClient.Builder builder = mock(ChatClient.Builder.class);
     ChatClient chatClient = mock(ChatClient.class);
-    when(builder.defaultSystem(any(org.springframework.core.io.Resource.class))).thenReturn(builder);
+    when(builder.defaultSystem(any(org.springframework.core.io.Resource.class)))
+        .thenReturn(builder);
     when(builder.defaultAdvisors(any(org.springframework.ai.chat.client.advisor.api.Advisor.class)))
         .thenReturn(builder);
     when(builder.build()).thenReturn(chatClient);

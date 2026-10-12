@@ -9,7 +9,8 @@ class EvaluationResultTest {
 
   @Test
   void recordExposesEvaluationFields() {
-    EvaluationResult result = new EvaluationResult(true, "Justification", List.of("Tip"), List.of("Improve"));
+    EvaluationResult result =
+        new EvaluationResult(true, "Justification", List.of("Tip"), List.of("Improve"));
 
     assertThat(result.isCorrect()).isTrue();
     assertThat(result.scoreJustification()).isEqualTo("Justification");

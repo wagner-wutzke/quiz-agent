@@ -72,7 +72,9 @@ class ExcelImportServiceTest {
 
   @Test
   void treatsNullRowAsEmpty() throws Exception {
-    java.lang.reflect.Method method = ExcelImportService.class.getDeclaredMethod("isRowEmpty", org.apache.poi.ss.usermodel.Row.class);
+    java.lang.reflect.Method method =
+        ExcelImportService.class.getDeclaredMethod(
+            "isRowEmpty", org.apache.poi.ss.usermodel.Row.class);
     method.setAccessible(true);
 
     assertThat(method.invoke(null, (Object) null)).isEqualTo(true);

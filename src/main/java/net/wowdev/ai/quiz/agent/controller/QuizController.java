@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import java.util.stream.Collectors;
+import org.springframework.beans.factory.annotation.Value;
 
 @RestController
 @RequestMapping("/api/quiz")
@@ -23,14 +25,22 @@ public class QuizController {
   private final FlashCardRepository repository;
   private final QuizAgentService agentService;
   private final EvaluationResultRepository evaluationRepository;
+  private final String interviewTopic;
 
   public QuizController(
       FlashCardRepository repository,
       QuizAgentService agentService,
-      EvaluationResultRepository evaluationRepository) {
+      EvaluationResultRepository evaluationRepository,
+      @Value("${spring.application.interview-topic:Java}") String interviewTopic) {
     this.repository = repository;
     this.agentService = agentService;
     this.evaluationRepository = evaluationRepository;
+    this.interviewTopic = interviewTopic;
+  }
+
+  @GetMapping("/topic")
+  public TopicResponse topic() {
+    return new TopicResponse(interviewTopic);
   }
 
   @GetMapping("/question")
@@ -57,9 +67,16 @@ public class QuizController {
   }
 
   @GetMapping("/history")
-  public List<EvaluationResultEntity> history(
+  public List<HistoryEntry> history(
       @RequestHeader("X-Quiz-Session-Id") String sessionId) {
-    return evaluationRepository.findBySessionIdOrderByIdAsc(sessionId);
+    return evaluationRepository.findHistoryBySessionId(sessionId).stream()
+        .map(entry -> new HistoryEntry(
+            entry.getId(),
+            entry.getQuestion(),
+            entry.getExpectedAnswer(),
+            entry.getAnswer(),
+            entry.toEvaluationResult()))
+        .collect(Collectors.toList());
   }
 
   @DeleteMapping("/history")
@@ -73,4 +90,9 @@ public class QuizController {
       Long id, String question, String expectedAnswer, long totalQuestions) {}
 
   public record EvaluationRequest(String question, String expectedAnswer, String answer) {}
+
+  public record HistoryEntry(
+      Long id, String question, String expectedAnswer, String answer, EvaluationResult result) {}
+
+  public record TopicResponse(String interviewTopic) {}
 }

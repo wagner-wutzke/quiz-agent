@@ -1,7 +1,6 @@
 package net.wowdev.ai.quiz.agent;
 
 import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.verify;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;

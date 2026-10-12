@@ -1,6 +1,7 @@
 spring:
   application:
     name: interview-coach
+    interview-topic: Salesforce Solution Architect
 
   devtools:
     restart:

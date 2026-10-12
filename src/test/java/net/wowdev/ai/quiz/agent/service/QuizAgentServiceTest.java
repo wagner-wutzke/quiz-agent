@@ -18,13 +18,16 @@ class QuizAgentServiceTest {
     ChatClient.ChatClientRequestSpec requestSpec = mock(ChatClient.ChatClientRequestSpec.class);
     ChatClient.PromptUserSpec promptUserSpec = mock(ChatClient.PromptUserSpec.class);
     ChatClient.CallResponseSpec responseSpec = mock(ChatClient.CallResponseSpec.class);
-    EvaluationResult expected = new EvaluationResult(true, "Correct", java.util.List.of(), java.util.List.of());
+    EvaluationResult expected =
+        new EvaluationResult(true, "Correct", java.util.List.of(), java.util.List.of());
     when(chatClient.prompt()).thenReturn(requestSpec);
-    when(requestSpec.user(any(Consumer.class))).thenAnswer(invocation -> {
-      Consumer<ChatClient.PromptUserSpec> prompt = invocation.getArgument(0);
-      prompt.accept(promptUserSpec);
-      return requestSpec;
-    });
+    when(requestSpec.user(any(Consumer.class)))
+        .thenAnswer(
+            invocation -> {
+              Consumer<ChatClient.PromptUserSpec> prompt = invocation.getArgument(0);
+              prompt.accept(promptUserSpec);
+              return requestSpec;
+            });
     when(promptUserSpec.text(any(String.class))).thenReturn(promptUserSpec);
     when(promptUserSpec.params(any(java.util.Map.class))).thenReturn(promptUserSpec);
     when(requestSpec.call()).thenReturn(responseSpec);

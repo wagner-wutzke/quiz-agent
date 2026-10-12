@@ -32,3 +32,4 @@ build/
 ### VS Code ###
 .vscode/
 /data/interview-coach-db.mv.db
+/data/interview-coach-db.trace.db
