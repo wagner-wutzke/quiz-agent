@@ -58,30 +58,31 @@ public class QuizController {
   }
 
   @PostMapping("/evaluate")
-  public EvaluationResultEntity evaluate(@RequestBody EvaluationRequest request,
+  public EvaluationResultEntity evaluate(
+      @RequestBody EvaluationRequest request,
       @RequestHeader("X-Quiz-Session-Id") String sessionId) {
-    EvaluationResult result = agentService.evaluateAnswer(
-        request.question(), request.expectedAnswer(), request.answer());
+    EvaluationResult result =
+        agentService.evaluateAnswer(request.question(), request.expectedAnswer(), request.answer());
     return historyService.save(
         sessionId, request.question(), request.expectedAnswer(), request.answer(), result);
   }
 
   @GetMapping("/history")
-  public List<HistoryEntry> history(
-      @RequestHeader("X-Quiz-Session-Id") String sessionId) {
+  public List<HistoryEntry> history(@RequestHeader("X-Quiz-Session-Id") String sessionId) {
     return historyService.findBySessionId(sessionId).stream()
-        .map(entry -> new HistoryEntry(
-            entry.getId(),
-            entry.getQuestion(),
-            entry.getExpectedAnswer(),
-            entry.getAnswer(),
-            entry.toEvaluationResult()))
+        .map(
+            entry ->
+                new HistoryEntry(
+                    entry.getId(),
+                    entry.getQuestion(),
+                    entry.getExpectedAnswer(),
+                    entry.getAnswer(),
+                    entry.toEvaluationResult()))
         .collect(Collectors.toList());
   }
 
   @DeleteMapping("/history")
-  public ResponseEntity<Void> clearHistory(
-      @RequestHeader("X-Quiz-Session-Id") String sessionId) {
+  public ResponseEntity<Void> clearHistory(@RequestHeader("X-Quiz-Session-Id") String sessionId) {
     historyService.deleteBySessionId(sessionId);
     return ResponseEntity.noContent().build();
   }

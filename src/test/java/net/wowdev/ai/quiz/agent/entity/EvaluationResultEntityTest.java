@@ -9,6 +9,12 @@ import org.junit.jupiter.api.Test;
 
 class EvaluationResultEntityTest {
 
+  private static void setId(EvaluationResultEntity entity, Long id) throws Exception {
+    Field idField = EvaluationResultEntity.class.getDeclaredField("id");
+    idField.setAccessible(true);
+    idField.set(entity, id);
+  }
+
   @Test
   void copiesEvaluationDataAndExposesEntityFields() throws Exception {
     List<String> tips = new java.util.ArrayList<>(List.of("Tip"));
@@ -45,11 +51,5 @@ class EvaluationResultEntityTest {
     assertThat(entity.getTips()).isEmpty();
     assertThat(entity.getEnhancementPoints()).isEmpty();
     assertThat(entity.toEvaluationResult().isCorrect()).isFalse();
-  }
-
-  private static void setId(EvaluationResultEntity entity, Long id) throws Exception {
-    Field idField = EvaluationResultEntity.class.getDeclaredField("id");
-    idField.setAccessible(true);
-    idField.set(entity, id);
   }
 }

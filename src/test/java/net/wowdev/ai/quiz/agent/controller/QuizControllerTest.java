@@ -31,8 +31,7 @@ class QuizControllerTest {
 
   @BeforeEach
   void setUp() {
-    controller =
-        new QuizController(flashCardService, agentService, historyService, "Test Topic");
+    controller = new QuizController(flashCardService, agentService, historyService, "Test Topic");
   }
 
   @Test

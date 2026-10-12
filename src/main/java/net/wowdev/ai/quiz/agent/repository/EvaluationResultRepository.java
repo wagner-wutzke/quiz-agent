@@ -10,10 +10,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 public interface EvaluationResultRepository extends JpaRepository<EvaluationResultEntity, Long> {
 
-  @Query("select distinct result from EvaluationResultEntity result "
-      + "left join fetch result.tips "
-      + "left join fetch result.enhancementPoints "
-      + "where result.sessionId = :sessionId order by result.id")
+  @Query(
+      "select distinct result from EvaluationResultEntity result "
+          + "left join fetch result.tips "
+          + "left join fetch result.enhancementPoints "
+          + "where result.sessionId = :sessionId order by result.id")
   List<EvaluationResultEntity> findHistoryBySessionId(@Param("sessionId") String sessionId);
 
   @Modifying
