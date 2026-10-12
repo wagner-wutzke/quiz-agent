@@ -7,7 +7,7 @@ with correctness feedback and a score summary.
 <div style="text-align: center">
   <img src="src/main/resources/static/img/quiz-agent-01.png" width="800"></img>
 </div>
-<br/><br/>
+<br/>
 
 ## Application functionality
 
@@ -20,6 +20,7 @@ with correctness feedback and a score summary.
 <div style="text-align: center">
   <img src="src/main/resources/static/img/quiz-agent-02.png" width="600"></img>
 </div>
+<br/>
 
 ## How it works
 
@@ -76,20 +77,21 @@ java -jar target/quiz-agent-0.0.1-SNAPSHOT.jar
 Configuration is in `src/main/resources/application.yaml`. The following environment variables are
 referenced there; values in parentheses are the configured defaults.
 
-| Environment variable                                     | Purpose                                                                                       |
-|----------------------------------------------------------|-----------------------------------------------------------------------------------------------|
-| `APP_INTERVIEW_TOPIC` (`Salesforce Technical Architect`) | Topic shown in the frontend                                                                   |
-| `OPENAI_API_KEY` (required)                              | Credential for the AI provider                                                                |
-| `OPENAI_MODEL` (`gpt-6-luna`)                            | Chat model name                                                                               |
-| `OPENAI_REASONING_EFFORT` (`low`)                        | Model reasoning effort                                                                        |
-| `OPENAI_BASEURL` (`https://api.openai.com/v1`)           | OpenAI-compatible API base URL                                                                |
-| `DATASOURCE_URL` (`jdbc:h2:file:./data/quiz-agent-db`)   | JDBC connection URL                                                                           |
-| `DATASOURCE_DRIVER_CLASS` (`org.h2.Driver`)              | JDBC driver class                                                                             |
-| `DATASOURCE_USERNAME` (`sa`)                             | Database username; the variable is spelled `DATASOURCE_USERNAME` in the current configuration |
-| `DATASOURCE_PASSWORD` (empty)                            | Database password; the variable is spelled `DATASOURCE_PASSWORD` in the current configuration |
-| `H2_CONSOLE_ENABLED` (`true`)                            | Enables the H2 web console                                                                    |
-| `H2_CONSOLE_WEB_ALLOW_OTHERS` (`true`)                   | Allows H2 console access from other hosts                                                     |
-| `OPENAI_CHAT_LOGLEVEL` (`INFO`)                          | Log level for Spring AI chat client logging                                                   |
+| Environment variable                                                | Purpose                                                                                       |
+|---------------------------------------------------------------------|-----------------------------------------------------------------------------------------------|
+| `APP_INTERVIEW_TOPIC` (`Salesforce Technical Architect`)            | Topic shown in the frontend                                                                   |
+| `APP_QUESTIONS_FILE` (`classpath:questions/questions-answers.xlsx`) | Classpath or Spring resource location of the Excel question bank                              |
+| `OPENAI_API_KEY` (required)                                         | Credential for the AI provider                                                                |
+| `OPENAI_MODEL` (`gpt-6-luna`)                                       | Chat model name                                                                               |
+| `OPENAI_REASONING_EFFORT` (`low`)                                   | Model reasoning effort                                                                        |
+| `OPENAI_BASEURL` (`https://api.openai.com/v1`)                      | OpenAI-compatible API base URL                                                                |
+| `DATASOURCE_URL` (`jdbc:h2:file:./data/quiz-agent-db`)              | JDBC connection URL                                                                           |
+| `DATASOURCE_DRIVER_CLASS` (`org.h2.Driver`)                         | JDBC driver class                                                                             |
+| `DATASOURCE_USERNAME` (`sa`)                                        | Database username; the variable is spelled `DATASOURCE_USERNAME` in the current configuration |
+| `DATASOURCE_PASSWORD` (empty)                                       | Database password; the variable is spelled `DATASOURCE_PASSWORD` in the current configuration |
+| `H2_CONSOLE_ENABLED` (`true`)                                       | Enables the H2 web console                                                                    |
+| `H2_CONSOLE_WEB_ALLOW_OTHERS` (`true`)                              | Allows H2 console access from other hosts                                                     |
+| `OPENAI_CHAT_LOGLEVEL` (`INFO`)                                     | Log level for Spring AI chat client logging                                                   |
 
 For example, to select a different topic and use a compatible provider endpoint:
 

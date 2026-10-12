@@ -2,7 +2,7 @@ spring:
   application:
     name: interview-coach
     interview-topic: ${APP_INTERVIEW_TOPIC:Salesforce Technical Architect}
-    questions-file-location: classpath:questions/questions-answers.xlsx
+    questions-file-location: ${APP_QUESTIONS_FILE:classpath:questions/questions-answers.xlsx}
 
   devtools:
     restart:
